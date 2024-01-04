@@ -1,3 +1,4 @@
 .vscode
 data
 work_dirs
+*__pycache__*

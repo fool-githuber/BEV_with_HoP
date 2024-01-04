@@ -52,6 +52,8 @@ model = dict(
     use_grid_mask=True,
     video_test_mode=True,
     with_hop=True,
+    bev_w=bev_w_,
+    bev_h=bev_h_,
     pretrained=dict(img='torchvision://resnet50'),
     img_backbone=dict(
         type='ResNet',
@@ -163,12 +165,12 @@ model = dict(
         type='BiTemporalPredictor',
         in_channels=256,
         out_channels=256,
-        embed_dims=256,
+        embed_dims=160,
         num_adj=5,
         reduction=4,
         with_query=True,
-        bev_h=50, 
-        bev_w=50,
+        bev_h=bev_h_, 
+        bev_w=bev_w_,
         decoder_short=dict(
             type='TemporalDecoder',
             num_layers=2,
@@ -177,15 +179,15 @@ model = dict(
                 attn_cfgs=[
                     dict(
                         type='TemporalCrossAttention',
-                        embed_dims=256,
-                        num_heads=4,
+                        embed_dims=160,
+                        num_heads=5,
                         num_levels=1,
                         num_bev_queue=2,
                         dropout=0.0)
                 ],
                 ffn_cfgs=dict(
                     type='FFN',
-                    embed_dims=256,
+                    embed_dims=160,
                     feedforward_channels=512,
                     num_fcs=2,
                     ffn_drop=0.0,
@@ -202,7 +204,7 @@ model = dict(
                 attn_cfgs=[
                     dict(
                         type='TemporalCrossAttention',
-                        embed_dims=256//4,
+                        embed_dims=160//4,
                         num_heads=2,
                         num_levels=1,
                         num_bev_queue=6,
@@ -210,7 +212,7 @@ model = dict(
                 ],
                 ffn_cfgs=dict(
                     type='FFN',
-                    embed_dims=256//4,
+                    embed_dims=160//4,
                     feedforward_channels=128,
                     num_fcs=2,
                     ffn_drop=0.0,
@@ -270,7 +272,7 @@ test_pipeline = [
 ]
 
 data = dict(
-    samples_per_gpu=4,
+    samples_per_gpu=1,
     workers_per_gpu=4,
     train=dict(
         type=dataset_type,

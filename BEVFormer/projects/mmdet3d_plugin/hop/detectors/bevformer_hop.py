@@ -27,6 +27,8 @@ class HoPBEVFormer(MVXTwoStageDetector):
     def __init__(self,
                  use_grid_mask=False,
                  with_hop=False,
+                 bev_w=None,
+                 bev_h=None,
                  pts_voxel_layer=None,
                  pts_voxel_encoder=None,
                  pts_middle_encoder=None,
@@ -55,6 +57,8 @@ class HoPBEVFormer(MVXTwoStageDetector):
         self.use_grid_mask = use_grid_mask
         self.with_hop = with_hop
         self.fp16_enabled = False
+        self.bev_w = bev_w
+        self.bev_h = bev_h
 
         # temporal
         self.video_test_mode = video_test_mode
@@ -199,15 +203,14 @@ class HoPBEVFormer(MVXTwoStageDetector):
                 img_feats = img_feats_list[i]
                 prev_bev = self.pts_bbox_head(
                     img_feats, img_metas, prev_bev, only_bev=True)
-                prev_bev_reshape = prev_bev.permute(0, 2, 1).reshape(bs, 256, 50, 50)
+                prev_bev_reshape = prev_bev.permute(0, 2, 1).reshape(bs, 256, self.bev_w, self.bev_h)
                 prev_bev_list.append(prev_bev_reshape)
         
         # input history bev feature set to history decoder to establish bev feature in time t-1
         self.train()
         prev_bev_hop = self.history_decoder(prev_bev_list[:1] + prev_bev_list[2:])
-        prev_bev_hop = prev_bev_hop.reshape(bs, 256, 2500).permute(0, 2, 1)
+        prev_bev_hop = prev_bev_hop.reshape(bs, 256, self.bev_w*self.bev_h).permute(0, 2, 1).detach()
         return prev_bev_hop, prev_bev
-        # return prev_bev, prev_bev
 
     @auto_fp16(apply_to=('img', 'points'))
     def forward_train(self,

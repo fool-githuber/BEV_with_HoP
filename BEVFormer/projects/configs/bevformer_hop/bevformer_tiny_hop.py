@@ -14,6 +14,23 @@ _base_ = [
 #
 plugin = True
 plugin_dir = 'projects/mmdet3d_plugin/'
+data_config = {
+    'cams': [
+        'CAM_FRONT_LEFT', 'CAM_FRONT', 'CAM_FRONT_RIGHT', 'CAM_BACK_LEFT',
+        'CAM_BACK', 'CAM_BACK_RIGHT'
+    ],
+    'Ncams':
+    6,
+    'input_size': (256, 704),
+    'src_size': (900, 1600),
+
+    # Augmentation
+    'resize': (-0.06, 0.11),
+    'rot': (-5.4, 5.4),
+    'flip': True,
+    'crop_h': (0.0, 0.0),
+    'resize_test': 0.00,
+}
 
 # If point cloud range is changed, the models should also change their point
 # cloud range accordingly
@@ -166,11 +183,11 @@ model = dict(
         in_channels=256,
         out_channels=256,
         embed_dims=160,
-        num_adj=5,
+        num_adj=queue_length-2,
         reduction=4,
         with_query=True,
-        bev_h=bev_h_, 
-        bev_w=bev_w_,
+        bev_h=15, 
+        bev_w=25,
         decoder_short=dict(
             type='TemporalDecoder',
             num_layers=2,
@@ -207,7 +224,7 @@ model = dict(
                         embed_dims=160//4,
                         num_heads=2,
                         num_levels=1,
-                        num_bev_queue=6,
+                        num_bev_queue=queue_length-1,
                         dropout=0.0)
                 ],
                 ffn_cfgs=dict(
@@ -233,15 +250,25 @@ model = dict(
             iou_cost=dict(type='IoUCost', weight=0.0), # Fake cost. This is just to make it compatible with DETR head.
             pc_range=point_cloud_range))))
 
-dataset_type = 'CustomNuScenesDataset'
+dataset_type = 'CustomNuScenesDataset_BEVFormer'
 data_root = 'data/nuscenes/'
 file_client_args = dict(backend='disk')
 
+bda_aug_conf = dict(
+    rot_lim=(-22.5, 22.5),
+    scale_lim=(0.95, 1.05),
+    flip_dx_ratio=0.5,
+    flip_dy_ratio=0.5)
 
 train_pipeline = [
-    dict(type='LoadMultiViewImageFromFiles', to_float32=True),
-    dict(type='PhotoMetricDistortionMultiViewImage'),
-    dict(type='LoadAnnotations3D', with_bbox_3d=True, with_label_3d=True, with_attr_label=False),
+    dict(
+        type='PrepareImageInputs',
+        is_train=True,
+        data_config=data_config,
+        sequential=True,
+        add_adj_bbox=True,
+        file_client_args=file_client_args),
+    dict(type='LoadAnnotationsBEVDepth', bda_aug_conf=bda_aug_conf, align_adj_bbox=True, classes=class_names),
     dict(type='ObjectRangeFilter', point_cloud_range=point_cloud_range),
     dict(type='ObjectNameFilter', classes=class_names),
     dict(type='NormalizeMultiviewImage', **img_norm_cfg),
@@ -271,36 +298,54 @@ test_pipeline = [
         ])
 ]
 
+multi_adj_frame_id_cfg = (1, queue_length, 1)
+
+share_data_config = dict(
+    type=dataset_type,
+    classes=class_names,
+    modality=input_modality,
+    img_info_prototype='bevdet4d',
+    multi_adj_frame_id_cfg=multi_adj_frame_id_cfg,
+)
+
 data = dict(
     samples_per_gpu=1,
     workers_per_gpu=4,
     train=dict(
         type=dataset_type,
         data_root=data_root,
-        ann_file=data_root + 'nuscenes_infos_temporal_train.pkl',
+        ann_file=data_root + 'bevdetv2-nuscenes_infos_train.pkl',
         pipeline=train_pipeline,
         classes=class_names,
         modality=input_modality,
         test_mode=False,
         use_valid_flag=True,
-        bev_size=(bev_h_, bev_w_),
-        queue_length=queue_length,
+        # bev_size=(bev_h_, bev_w_),
+        # queue_length=queue_length,
         # we use box_type_3d='LiDAR' in kitti and nuscenes dataset
         # and box_type_3d='Depth' in sunrgbd and scannet dataset.
         box_type_3d='LiDAR'),
     val=dict(type=dataset_type,
              data_root=data_root,
-             ann_file=data_root + 'nuscenes_infos_temporal_val.pkl',
-             pipeline=test_pipeline,  bev_size=(bev_h_, bev_w_),
-             classes=class_names, modality=input_modality, samples_per_gpu=1),
+             ann_file=data_root + 'bevdetv2-nuscenes_infos_val.pkl',
+             pipeline=test_pipeline,
+            #  bev_size=(bev_h_, bev_w_),
+             classes=class_names,
+             modality=input_modality,
+             samples_per_gpu=1),
     test=dict(type=dataset_type,
               data_root=data_root,
-              ann_file=data_root + 'nuscenes_infos_temporal_val.pkl',
-              pipeline=test_pipeline, bev_size=(bev_h_, bev_w_),
-              classes=class_names, modality=input_modality),
+              ann_file=data_root + 'bevdetv2-nuscenes_infos_val.pkl',
+              pipeline=test_pipeline,
+            #   bev_size=(bev_h_, bev_w_),
+              classes=class_names,
+              modality=input_modality),
     shuffler_sampler=dict(type='DistributedGroupSampler'),
     nonshuffler_sampler=dict(type='DistributedSampler')
 )
+
+for key in ['train', 'val', 'test']:
+    data[key].update(share_data_config)
 
 optimizer = dict(
     type='AdamW',

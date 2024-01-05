@@ -72,7 +72,7 @@ class HoPBEVFormer(MVXTwoStageDetector):
         # Temporal decoder
         self.history_decoder = build_backbone(history_decoder)
 
-    def extract_img_feat(self, img, img_metas, len_queue=None):
+    def extract_img_feat(self, img, len_queue=None):
         """Extract features of images."""
         B = img.size(0)
         if img is not None:
@@ -108,13 +108,23 @@ class HoPBEVFormer(MVXTwoStageDetector):
         return img_feats_reshaped
 
     @auto_fp16(apply_to=('img'))
-    def extract_feat(self, img, img_metas=None, len_queue=None):
+    def extract_feat(self, img, len_queue=None):
         """Extract features from images and points."""
 
-        img_feats = self.extract_img_feat(img, img_metas, len_queue=len_queue)
+        img_feats = self.extract_img_feat(img, len_queue=len_queue)
         
         return img_feats
 
+    def extract_feat_hop(self, img, len_queue=None):
+        img_feat_list = list()
+        for i in range(len_queue):
+            img_single = img[:, i, :, :, :, :]
+            img_feat_single = self.extract_feat(img=img_single)[0]
+            bs, np, C, H, W = img_feat_single.shape
+            img_feat_single = img_feat_single.reshape(bs * np, C, H, W)
+            img_feat_list.append(img_feat_single)
+        img_feats = self.history_decoder(img_feat_list[:1] + img_feat_list[2:])
+        return [img_feats.reshape(bs, np, C, H, W)]
 
     def forward_pts_train(self,
                           pts_feats,
@@ -185,33 +195,6 @@ class HoPBEVFormer(MVXTwoStageDetector):
         self.train()
         return prev_bev, prev_bev
         
-    def obtain_history_bev_hop(self, imgs_queue, img_metas_list):
-        self.eval()
-        with torch.no_grad():
-            prev_bev = None
-            bs, len_queue, num_cams, C, H, W = imgs_queue.shape
-            img_feats_list = list()
-            for i in range(len_queue):
-                img_queue = imgs_queue[:, i, :, :, :, :]
-                img_feats_list.append(self.extract_feat(img=img_queue))
-            # img_feats_list = self.extract_feat(img=imgs_queue, len_queue=len_queue)
-            prev_bev_list = list()
-            for i in range(len_queue):
-                img_metas = [each[i] for each in img_metas_list]
-                if not img_metas[0]['prev_bev_exists']:
-                    prev_bev = None
-                img_feats = img_feats_list[i]
-                prev_bev = self.pts_bbox_head(
-                    img_feats, img_metas, prev_bev, only_bev=True)
-                prev_bev_reshape = prev_bev.permute(0, 2, 1).reshape(bs, 256, self.bev_w, self.bev_h)
-                prev_bev_list.append(prev_bev_reshape)
-        
-        # input history bev feature set to history decoder to establish bev feature in time t-1
-        self.train()
-        prev_bev_hop = self.history_decoder(prev_bev_list[:1] + prev_bev_list[2:])
-        prev_bev_hop = prev_bev_hop.reshape(bs, 256, self.bev_w*self.bev_h).permute(0, 2, 1)
-        return prev_bev_hop, prev_bev
-
     @auto_fp16(apply_to=('img', 'points'))
     def forward_train(self,
                       points=None,
@@ -248,22 +231,21 @@ class HoPBEVFormer(MVXTwoStageDetector):
                 2D boxes in images to be ignored. Defaults to None.
         Returns:
             dict: Losses of different branches.
-        """        
+        """
         len_queue = img.size(1)
         prev_img = img[:, :-1, ...]
-        img = img[:, -1, ...]
+        curr_img = img[:, -1, ...]
 
         prev_img_metas = copy.deepcopy(img_metas)
-        # with hop
+        prev_bev, hq_bev = self.obtain_history_bev(prev_img, prev_img_metas)
+        
         if self.with_hop:
-            prev_bev, hq_bev = self.obtain_history_bev_hop(prev_img, prev_img_metas)
+            img_feats = self.extract_feat_hop(img=img, len_queue=len_queue)
+            img_metas = [each[len_queue-2] for each in img_metas]
         else:
-            prev_bev, hq_bev = self.obtain_history_bev(prev_img, prev_img_metas)
+            img_feats = self.extract_feat(img=curr_img)
+            img_metas = [each[len_queue-1] for each in img_metas]
 
-        img_metas = [each[len_queue-1] for each in img_metas]
-        if not img_metas[0]['prev_bev_exists']:
-            prev_bev = None
-        img_feats = self.extract_feat(img=img, img_metas=img_metas)
         losses = dict()
         losses_pts = self.forward_pts_train(img_feats, gt_bboxes_3d,
                                             gt_labels_3d, img_metas,

@@ -209,7 +209,7 @@ class HoPBEVFormer(MVXTwoStageDetector):
         # input history bev feature set to history decoder to establish bev feature in time t-1
         self.train()
         prev_bev_hop = self.history_decoder(prev_bev_list[:1] + prev_bev_list[2:])
-        prev_bev_hop = prev_bev_hop.reshape(bs, 256, self.bev_w*self.bev_h).permute(0, 2, 1).detach()
+        prev_bev_hop = prev_bev_hop.reshape(bs, 256, self.bev_w*self.bev_h).permute(0, 2, 1)
         return prev_bev_hop, prev_bev
 
     @auto_fp16(apply_to=('img', 'points'))

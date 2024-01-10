@@ -109,6 +109,6 @@ Using the above code will generate `nuscenes_infos_temporal_{train,val}.pkl`.
 | Backbone | Method | Lr Schd | NDS| mAP|memroy | Config |
 | :---: | :---: | :---: | :---: | :---:|:---:| :---: |
 | R50 | BEVFormer-tiny | 24ep | 35.4|25.2 | 6500M |[config](projects/configs/bevformer/bevformer_tiny.py) |
-| R50  | BEVFormer-tiny_hop | 24ep | 47.9|37.0 | 10500M |[config](projects/configs/bevformer/bevformer_small.py) |
+| R50  | BEVFormer-tiny_hop | 24ep | 38.2|27.7 | 6685M |[config](projects/configs/bevformer/bevformer_small.py) |
 
 

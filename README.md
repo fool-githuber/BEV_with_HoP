@@ -1,6 +1,6 @@
 <div align="center">   
   
-# Optimization of BEV Metheds based on HoP module
+# Optimization of BEV Methods based on HoP module
 </div>
 
 </br>

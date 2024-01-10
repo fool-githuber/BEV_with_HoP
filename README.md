@@ -23,8 +23,8 @@ In this work, we realize a state-of-the-art method named HoP on two temporal BEV
 # Detail
 
 Detailed imformation can be seen in:
-[BEVformer](./BEVFormer/README.md)
 
+[BEVformer](./BEVFormer/README.md)
 
 [SparseBEV](./SparseBEV/README.md)
 

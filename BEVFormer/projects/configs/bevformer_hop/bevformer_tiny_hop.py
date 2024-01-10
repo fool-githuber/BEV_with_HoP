@@ -53,15 +53,13 @@ _ffn_dim_ = _dim_*2
 _num_levels_ = 1
 bev_h_ = 50
 bev_w_ = 50
-queue_length = 8 # each sequence contains `queue_length` frames.
+queue_length = 6 # each sequence contains `queue_length` frames.
 
 model = dict(
     type='HoPBEVFormer',
     use_grid_mask=True,
     video_test_mode=True,
     with_hop=True,
-    bev_w=bev_w_,
-    bev_h=bev_h_,
     pretrained=dict(img='torchvision://resnet50'),
     img_backbone=dict(
         type='ResNet',
@@ -246,12 +244,7 @@ data_root = 'data/nuscenes/'
 file_client_args = dict(backend='disk')
 
 train_pipeline = [
-    # dict(type='LoadMultiViewImageFromFiles', to_float32=True),
-    dict(type='LoadMultiViewImageFromFiles_HoP',
-         add_adj_bbox=True, 
-         data_config=data_config,
-         is_train=True,
-         to_float32=True),
+    dict(type='LoadMultiViewImageFromFiles_HoP', add_adj_bbox=True, data_config=data_config, is_train=True, to_float32=True),
     dict(type='PhotoMetricDistortionMultiViewImage'),
     dict(type='LoadAnnotations3D', with_bbox_3d=True, with_label_3d=True, with_attr_label=False),
     dict(type='ObjectRangeFilter', point_cloud_range=point_cloud_range),
@@ -264,14 +257,10 @@ train_pipeline = [
 ]
 
 test_pipeline = [
-    dict(type='LoadMultiViewImageFromFiles', to_float32=True),
+    dict(type='LoadMultiViewImageFromFiles_HoP', add_adj_bbox=True, data_config=data_config, is_train=False, to_float32=True),
     dict(type='NormalizeMultiviewImage', **img_norm_cfg),
-    dict(
-        type='MultiScaleFlipAug3D',
-        img_scale=(1600, 900),
-        pts_scale_ratio=1,
-        flip=False,
-        transforms=[
+    dict(type='MultiScaleFlipAug3D', img_scale=(1600, 900), pts_scale_ratio=1, flip=False,
+         transforms=[
             dict(type='RandomScaleImageMultiViewImage', scales=[0.5]),
             dict(type='PadMultiViewImage', size_divisor=32),
             dict(
@@ -294,7 +283,7 @@ share_data_config = dict(
 
 data = dict(
     samples_per_gpu=1,
-    workers_per_gpu=4,
+    workers_per_gpu=8,
     train=dict(
         type=dataset_type,
         data_root=data_root,
@@ -310,14 +299,14 @@ data = dict(
         box_type_3d='LiDAR'),
     val=dict(type=dataset_type,
              data_root=data_root,
-             ann_file=data_root + 'bevdetv2-nuscenes_infos_val.pkl',
+             ann_file=data_root + 'nuscenes_infos_temporal_val.pkl',
              pipeline=test_pipeline,
              classes=class_names,
              modality=input_modality,
              samples_per_gpu=1),
     test=dict(type=dataset_type,
               data_root=data_root,
-              ann_file=data_root + 'bevdetv2-nuscenes_infos_val.pkl',
+              ann_file=data_root + 'nuscenes_infos_temporal_test.pkl',
               pipeline=test_pipeline,
               classes=class_names,
               modality=input_modality),

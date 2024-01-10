@@ -25,8 +25,6 @@ class HoPBEVFormer(MVXTwoStageDetector):
     def __init__(self,
                  use_grid_mask=False,
                  with_hop=False,
-                 bev_w=None,
-                 bev_h=None,
                  pts_voxel_layer=None,
                  pts_voxel_encoder=None,
                  pts_middle_encoder=None,
@@ -55,8 +53,6 @@ class HoPBEVFormer(MVXTwoStageDetector):
         self.use_grid_mask = use_grid_mask
         self.with_hop = with_hop
         self.fp16_enabled = False
-        self.bev_w = bev_w
-        self.bev_h = bev_h
 
         # temporal
         self.video_test_mode = video_test_mode

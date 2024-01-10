@@ -4,7 +4,7 @@ from .transform_3d import (
 from .formating import CustomDefaultFormatBundle3D
 from .augmentation import (CropResizeFlipImage, GlobalRotScaleTransImage)
 from .dd3d_mapper import DD3DMapper
-from .loading import LoadAnnotationsBEVDepth
+from .loading import LoadMultiViewImageFromFiles_HoP
 from .compose import Compose
 __all__ = [
     'PadMultiViewImage', 'NormalizeMultiviewImage', 

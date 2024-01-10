@@ -10,10 +10,8 @@ from mmdet.models import DETECTORS
 from mmdet3d.core import bbox3d2result
 from mmdet3d.models.detectors.mvx_two_stage import MVXTwoStageDetector
 from projects.mmdet3d_plugin.models.utils.grid_mask import GridMask
-import time
 import copy
 import numpy as np
-import mmdet3d
 from projects.mmdet3d_plugin.models.utils.bricks import run_time
 from ..builder import build_backbone
 
@@ -208,6 +206,7 @@ class HoPBEVFormer(MVXTwoStageDetector):
                       gt_bboxes_ignore=None,
                       img_depth=None,
                       img_mask=None,
+                    #   adjacent_bboxes=None,
                       ):
         """Forward training function.
         Args:
@@ -238,10 +237,13 @@ class HoPBEVFormer(MVXTwoStageDetector):
 
         prev_img_metas = copy.deepcopy(img_metas)
         prev_bev, hq_bev = self.obtain_history_bev(prev_img, prev_img_metas)
-        
         if self.with_hop:
+            # if with hop, use aligned gt(t-k) corresponded with the pseudo bev feature(t-k)
             img_feats = self.extract_feat_hop(img=img, len_queue=len_queue)
+            gt_bboxes_3d = [img_metas[0][len_queue-1]['adjacent_bboxes'][-1][0].to(img.device)]
+            gt_labels_3d = [img_metas[0][len_queue-1]['adjacent_bboxes'][-1][1].to(img.device)]
             img_metas = [each[len_queue-2] for each in img_metas]
+            
         else:
             img_feats = self.extract_feat(img=curr_img)
             img_metas = [each[len_queue-1] for each in img_metas]

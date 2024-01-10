@@ -21,15 +21,6 @@ data_config = {
     ],
     'Ncams':
     6,
-    'input_size': (256, 704),
-    'src_size': (900, 1600),
-
-    # Augmentation
-    'resize': (-0.06, 0.11),
-    'rot': (-5.4, 5.4),
-    'flip': True,
-    'crop_h': (0.0, 0.0),
-    'resize_test': 0.00,
 }
 
 # If point cloud range is changed, the models should also change their point
@@ -250,25 +241,19 @@ model = dict(
             iou_cost=dict(type='IoUCost', weight=0.0), # Fake cost. This is just to make it compatible with DETR head.
             pc_range=point_cloud_range))))
 
-dataset_type = 'CustomNuScenesDataset_BEVFormer'
+dataset_type = 'HoPNuScenesDataset'
 data_root = 'data/nuscenes/'
 file_client_args = dict(backend='disk')
 
-bda_aug_conf = dict(
-    rot_lim=(-22.5, 22.5),
-    scale_lim=(0.95, 1.05),
-    flip_dx_ratio=0.5,
-    flip_dy_ratio=0.5)
-
 train_pipeline = [
-    dict(
-        type='PrepareImageInputs',
-        is_train=True,
-        data_config=data_config,
-        sequential=True,
-        add_adj_bbox=True,
-        file_client_args=file_client_args),
-    dict(type='LoadAnnotationsBEVDepth', bda_aug_conf=bda_aug_conf, align_adj_bbox=True, classes=class_names),
+    # dict(type='LoadMultiViewImageFromFiles', to_float32=True),
+    dict(type='LoadMultiViewImageFromFiles_HoP',
+         add_adj_bbox=True, 
+         data_config=data_config,
+         is_train=True,
+         to_float32=True),
+    dict(type='PhotoMetricDistortionMultiViewImage'),
+    dict(type='LoadAnnotations3D', with_bbox_3d=True, with_label_3d=True, with_attr_label=False),
     dict(type='ObjectRangeFilter', point_cloud_range=point_cloud_range),
     dict(type='ObjectNameFilter', classes=class_names),
     dict(type='NormalizeMultiviewImage', **img_norm_cfg),
@@ -281,7 +266,6 @@ train_pipeline = [
 test_pipeline = [
     dict(type='LoadMultiViewImageFromFiles', to_float32=True),
     dict(type='NormalizeMultiviewImage', **img_norm_cfg),
-   
     dict(
         type='MultiScaleFlipAug3D',
         img_scale=(1600, 900),
@@ -304,7 +288,7 @@ share_data_config = dict(
     type=dataset_type,
     classes=class_names,
     modality=input_modality,
-    img_info_prototype='bevdet4d',
+    with_hop=True,
     multi_adj_frame_id_cfg=multi_adj_frame_id_cfg,
 )
 
@@ -314,14 +298,13 @@ data = dict(
     train=dict(
         type=dataset_type,
         data_root=data_root,
-        ann_file=data_root + 'bevdetv2-nuscenes_infos_train.pkl',
+        ann_file=data_root + 'nuscenes_infos_temporal_train.pkl',
         pipeline=train_pipeline,
         classes=class_names,
         modality=input_modality,
         test_mode=False,
         use_valid_flag=True,
-        # bev_size=(bev_h_, bev_w_),
-        # queue_length=queue_length,
+        queue_length=queue_length,
         # we use box_type_3d='LiDAR' in kitti and nuscenes dataset
         # and box_type_3d='Depth' in sunrgbd and scannet dataset.
         box_type_3d='LiDAR'),
@@ -329,7 +312,6 @@ data = dict(
              data_root=data_root,
              ann_file=data_root + 'bevdetv2-nuscenes_infos_val.pkl',
              pipeline=test_pipeline,
-            #  bev_size=(bev_h_, bev_w_),
              classes=class_names,
              modality=input_modality,
              samples_per_gpu=1),
@@ -337,7 +319,6 @@ data = dict(
               data_root=data_root,
               ann_file=data_root + 'bevdetv2-nuscenes_infos_val.pkl',
               pipeline=test_pipeline,
-            #   bev_size=(bev_h_, bev_w_),
               classes=class_names,
               modality=input_modality),
     shuffler_sampler=dict(type='DistributedGroupSampler'),

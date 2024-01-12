@@ -257,7 +257,7 @@ train_pipeline = [
 ]
 
 test_pipeline = [
-    dict(type='LoadMultiViewImageFromFiles_HoP', add_adj_bbox=True, data_config=data_config, is_train=False, to_float32=True),
+    dict(type='LoadMultiViewImageFromFiles', to_float32=True),
     dict(type='NormalizeMultiviewImage', **img_norm_cfg),
     dict(type='MultiScaleFlipAug3D', img_scale=(1600, 900), pts_scale_ratio=1, flip=False,
          transforms=[
@@ -306,7 +306,7 @@ data = dict(
              samples_per_gpu=1),
     test=dict(type=dataset_type,
               data_root=data_root,
-              ann_file=data_root + 'nuscenes_infos_temporal_test.pkl',
+              ann_file=data_root + 'nuscenes_infos_temporal_val.pkl',
               pipeline=test_pipeline,
               classes=class_names,
               modality=input_modality),

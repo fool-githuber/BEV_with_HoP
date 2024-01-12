@@ -1,4 +1,7 @@
 .vscode
 data
 work_dirs
-*__pycache__*
+val
+__pycache__
+outputs
+pretrain
